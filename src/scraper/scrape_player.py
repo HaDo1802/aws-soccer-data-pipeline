@@ -133,7 +133,7 @@ class PlayerLogScraper:
         season: str,
         competition: str,
     ) -> list[dict[str, Any]]:
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, "html.parser")
         target_table = self._find_match_table(soup)
         if target_table is None:
             raise ValueError("Could not locate Transfermarkt detailed stats table in HTML")

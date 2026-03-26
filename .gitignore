@@ -17,3 +17,6 @@ htmlcov/
 docs
 
 data/
+
+build_*/
+*.zip

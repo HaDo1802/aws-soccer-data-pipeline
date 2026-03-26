@@ -1,27 +1,32 @@
 import logging
-from pathlib import Path
-
-
-LOG_PATH = Path("logs") / "scraper.log"
+import os
 
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
+
     if logger.handlers:
         return logger
 
-    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
-    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    )
 
-    file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
-    file_handler.setFormatter(formatter)
-
+    # Always log to console (CloudWatch in Lambda)
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
-
-    logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
+
+    # Optional: local file logging only
+    if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        try:
+            file_handler = logging.FileHandler("logs/scraper.log")
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except OSError:
+            pass
+
     return logger

@@ -28,7 +28,7 @@ class TeamRosterScraper:
 
     def get_squad_players(self, season: str) -> list[dict[str, str]]:
         html = self.client.fetch(self.build_roster_url(season))
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, "html.parser")
         players: list[dict[str, str]] = []
         seen_ids: set[str] = set()
 

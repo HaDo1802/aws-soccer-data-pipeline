@@ -74,7 +74,7 @@ class TransfermarktClient:
         return cleaned
 
     def extract_player_name_from_html(self, html: str) -> Optional[str]:
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html,"html.parser")
         heading = soup.find("h1")
         if heading is None:
             return None
