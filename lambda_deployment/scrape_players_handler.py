@@ -36,7 +36,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     season = request.get("season", "2025")
     player = request.get("player")          # now expects a dict from Map, not a name string
     competition = request.get("competition")
-    scrape_date = datetime.now(timezone.utc).date().isoformat()
+    scrape_date = request.get("scrape_date")
 
     bucket = os.environ["S3_BUCKET"]
     bronze_prefix = os.environ.get("S3_BRONZE_PREFIX", "bronze")

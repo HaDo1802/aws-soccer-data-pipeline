@@ -37,6 +37,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
         "team": config.TEAM_KEY,
         "club": config.CLUB_NAME,
         "season": season,
+        "scrape_date": scrape_date,
         "players": players,
         "players_found": len(players),
         "roster_key": key,
