@@ -34,7 +34,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     request = event or {}
     team = request.get("team", "manchester_united")
     season = request.get("season", "2025")
-    player = request.get("player")
+    player = request.get("player")          # now expects a dict from Map, not a name string
     competition = request.get("competition")
     scrape_date = datetime.now(timezone.utc).date().isoformat()
 
@@ -45,8 +45,13 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     roster_scraper = TeamRosterScraper(config=config)
     player_scraper = PlayerLogScraper(config=config, roster_scraper=roster_scraper)
 
-    squad_players = roster_scraper.get_squad_players(season)
-    squad_players = _filter_players(squad_players, player)
+    # ← CHANGED: if a player object is passed directly (from Map), use it.
+    # Falls back to full roster scrape for standalone/local invocations.
+    if isinstance(player, dict) and "player_url" in player:
+        squad_players = [player]
+    else:
+        squad_players = roster_scraper.get_squad_players(season)
+        squad_players = _filter_players(squad_players, player)  # player is a name string here
 
     total_rows = 0
     player_keys: list[str] = []
