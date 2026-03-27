@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import pandas as pd
 
@@ -13,6 +13,8 @@ LOGGER = get_logger(__name__)
 
 
 class PlayerStatsTransformer:
+    SCRAPE_DATE_PATTERN = re.compile(r"^scrape_date=(\d{4}-\d{2}-\d{2})\.csv$")
+
     COLUMNS = [
         "season",
         "season_label",
@@ -64,46 +66,62 @@ class PlayerStatsTransformer:
     def __init__(self, config: Optional[Config] = None) -> None:
         self.config = config or Config()
 
-    def transform_seasons(self, seasons: Optional[list[str]] = None) -> list[Path]:
+    def transform_seasons(
+        self,
+        seasons: Optional[list[str]] = None,
+        scrape_date: Optional[str] = None,
+    ) -> list[Path]:
         target_seasons = seasons or self.config.SEASONS
         written_paths: list[Path] = []
         for season in target_seasons:
-            written_path = self.transform_season(season, team=self.config.TEAM_KEY)
+            written_path = self.transform_season(
+                season,
+                team=self.config.TEAM_KEY,
+                scrape_date=scrape_date,
+            )
             if written_path is not None:
                 written_paths.append(written_path)
         return written_paths
 
-    def transform_season(self, season: str, team: Optional[str] = None) -> Optional[Path]:
-        active_team = team or self.config.TEAM_KEY
-        bronze_root = (
-            Path(self.config.LOCAL_BRONZE_ROOT)
-            / "transfermarkt"
-            / active_team
-            / "player_detailed_stats_combined"
+    def transform_season(
+        self,
+        season: str,
+        team: Optional[str] = None,
+        scrape_date: Optional[str] = None,
+    ) -> Optional[Path]:
+        active_config = self._resolve_config(team)
+        bronze_path = self._resolve_combined_bronze_path(
+            season=season,
+            team=active_config.TEAM_KEY,
+            scrape_date=scrape_date,
         )
-        season_files = sorted(bronze_root.glob(f"{season}/scrape_date=*.csv"))
-        transformed_rows: list[dict[str, Any]] = []
+        if bronze_path is None:
+            return None
 
-        for path in season_files:
-            raw_frame = pd.read_csv(path, dtype=object)
-            transformed_rows.extend(
-                self.transform_row(
-                    self._clean_raw_row(row),
-                    club=self.config.CLUB_NAME,
-                    season_label=self.config.SEASON_LABELS.get(season, season),
-                )
-                for row in raw_frame.to_dict(orient="records")
-            )
-
+        resolved_scrape_date = self._scrape_date_from_path(bronze_path)
+        raw_frame = pd.read_csv(bronze_path, dtype=object)
+        transformed_rows = self.transform_rows(
+            rows=(self.normalize_raw_row(row) for row in raw_frame.to_dict(orient="records")),
+            season=season,
+            club=active_config.CLUB_NAME,
+        )
         if not transformed_rows:
             return None
 
-        output_path = self._csv_output_path(season, active_team)
+        output_path = self._csv_output_path(
+            season=season,
+            team=active_config.TEAM_KEY,
+            scrape_date=resolved_scrape_date,
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         dataframe = pd.DataFrame(transformed_rows, columns=self.COLUMNS)
         dataframe = self._apply_dtypes(dataframe)
         dataframe.to_csv(output_path, index=False)
-        LOGGER.info("Wrote cleaned player stats CSV to %s", output_path)
+        LOGGER.info(
+            "Wrote cleaned player stats CSV to %s from bronze snapshot %s",
+            output_path,
+            bronze_path,
+        )
         return output_path
 
     def transform_player_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -129,6 +147,34 @@ class PlayerStatsTransformer:
             "player_stats": transformed_rows,
         }
 
+    def transform_rows(
+        self,
+        rows: Iterable[dict[str, Any]],
+        season: str,
+        club: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
+        season_label = self.config.SEASON_LABELS.get(season, season)
+        return [
+            self.transform_row(
+                row,
+                club=club,
+                season_label=season_label,
+            )
+            for row in rows
+        ]
+
+    def normalize_raw_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        cleaned: dict[str, Any] = {}
+        for key, value in row.items():
+            if pd.isna(value):
+                cleaned[key] = None
+                continue
+            if isinstance(value, str) and not value.strip():
+                cleaned[key] = None
+                continue
+            cleaned[key] = value
+        return cleaned
+
     def transform_row(
         self,
         row: dict[str, Any],
@@ -150,8 +196,7 @@ class PlayerStatsTransformer:
             "is_home_match": self._infer_is_home(home_team_name, away_team_name),
         }
 
-    def _csv_output_path(self, season: str, team: str) -> Path:
-        scrape_date = datetime.now(timezone.utc).date().isoformat()
+    def _csv_output_path(self, season: str, team: str, scrape_date: str) -> Path:
         return (
             Path(self.config.LOCAL_SILVER_ROOT)
             / "transfermarkt"
@@ -161,6 +206,49 @@ class PlayerStatsTransformer:
             / f"scrape_date={scrape_date}.csv"
         )
 
+    def _resolve_config(self, team: Optional[str]) -> Config:
+        active_team = team or self.config.TEAM_KEY
+        if active_team == self.config.TEAM_KEY:
+            return self.config
+        return self.config.for_team(active_team)
+
+    def _combined_bronze_root(self, team: str) -> Path:
+        return (
+            Path(self.config.LOCAL_BRONZE_ROOT)
+            / "transfermarkt"
+            / team
+            / "player_detailed_stats_combined"
+        )
+
+    def _resolve_combined_bronze_path(
+        self,
+        season: str,
+        team: str,
+        scrape_date: Optional[str] = None,
+    ) -> Optional[Path]:
+        bronze_root = self._combined_bronze_root(team) / season
+        if scrape_date is not None:
+            candidate = bronze_root / f"scrape_date={scrape_date}.csv"
+            return candidate if candidate.is_file() else None
+
+        candidates = sorted(
+            (
+                path
+                for path in bronze_root.glob("scrape_date=*.csv")
+                if self._scrape_date_from_path(path) is not None
+            ),
+            key=self._scrape_date_from_path,
+        )
+        if not candidates:
+            return None
+        return candidates[-1]
+
+    def _scrape_date_from_path(self, path: Path) -> Optional[str]:
+        match = self.SCRAPE_DATE_PATTERN.match(path.name)
+        if match is None:
+            return None
+        return match.group(1)
+
     def _apply_dtypes(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         typed = dataframe.copy()
         for column in self.NULLABLE_INT_COLUMNS:
@@ -168,15 +256,6 @@ class PlayerStatsTransformer:
         typed["is_home_match"] = typed["is_home_match"].astype("boolean")
         typed["performance_rating"] = typed["performance_rating"].astype("float64")
         return typed
-
-    def _clean_raw_row(self, row: dict[str, Any]) -> dict[str, Any]:
-        cleaned: dict[str, Any] = {}
-        for key, value in row.items():
-            if pd.isna(value):
-                cleaned[key] = None
-            else:
-                cleaned[key] = value
-        return cleaned
 
     def _normalize_date(self, value: Any) -> Optional[str]:
         if value is None:

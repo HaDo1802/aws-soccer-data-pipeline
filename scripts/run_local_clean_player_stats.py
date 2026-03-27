@@ -18,6 +18,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--team", default=None)
     parser.add_argument("--season", default=None)
+    parser.add_argument("--scrape-date", default=None)
     args = parser.parse_args()
 
     base_config = Config()
@@ -26,7 +27,10 @@ def main() -> None:
 
     try:
         transformer = PlayerStatsTransformer(config=config)
-        written_paths = transformer.transform_seasons(seasons=seasons)
+        written_paths = transformer.transform_seasons(
+            seasons=seasons,
+            scrape_date=args.scrape_date,
+        )
         print(f"Cleaned files written: {len(written_paths)}")
     except Exception as exc:
         LOGGER.exception("Top-level clean player stats run failed: %s", exc)
