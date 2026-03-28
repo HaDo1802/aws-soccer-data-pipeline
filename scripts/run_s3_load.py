@@ -33,8 +33,8 @@ def main() -> None:
         TRANSFERMARKT_CLUB_SLUG=config.TRANSFERMARKT_CLUB_SLUG,
         TRANSFERMARKT_CLUB_ID=config.TRANSFERMARKT_CLUB_ID,
         TEAM_CONFIGS=config.TEAM_CONFIGS,
-        S3_BRONZE_PREFIX=args.bronze_prefix or Config.S3_BRONZE_PREFIX,
-        S3_SILVER_PREFIX=args.silver_prefix or Config.S3_SILVER_PREFIX,
+        S3_RAW_PREFIX=args.bronze_prefix or Config.S3_RAW_PREFIX,
+        S3_CLEANED_PREFIX=args.silver_prefix or Config.S3_CLEANED_PREFIX,
     )
 
     try:

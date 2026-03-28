@@ -48,12 +48,12 @@ class PlayerStatsTransformerTests(unittest.TestCase):
     def test_transform_season_uses_latest_bronze_snapshot_by_default(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config = Config(
-                LOCAL_BRONZE_ROOT=f"{temp_dir}/bronze",
-                LOCAL_SILVER_ROOT=f"{temp_dir}/silver",
+                LOCAL_RAW_ROOT=f"{temp_dir}/bronze",
+                LOCAL_CLEANED_ROOT=f"{temp_dir}/silver",
             )
             transformer = PlayerStatsTransformer(config=config)
             season_dir = (
-                Path(config.LOCAL_BRONZE_ROOT)
+                Path(config.LOCAL_RAW_ROOT)
                 / "transfermarkt"
                 / config.TEAM_KEY
                 / "player_detailed_stats_combined"
@@ -81,12 +81,12 @@ class PlayerStatsTransformerTests(unittest.TestCase):
     def test_transform_season_honors_requested_scrape_date(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config = Config(
-                LOCAL_BRONZE_ROOT=f"{temp_dir}/bronze",
-                LOCAL_SILVER_ROOT=f"{temp_dir}/silver",
+                LOCAL_RAW_ROOT=f"{temp_dir}/bronze",
+                LOCAL_CLEANED_ROOT=f"{temp_dir}/silver",
             )
             transformer = PlayerStatsTransformer(config=config)
             season_dir = (
-                Path(config.LOCAL_BRONZE_ROOT)
+                Path(config.LOCAL_RAW_ROOT)
                 / "transfermarkt"
                 / config.TEAM_KEY
                 / "player_detailed_stats_combined"

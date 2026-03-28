@@ -57,8 +57,8 @@ def _clean_season(
     team_config = Config().for_team(team)
     config = replace(
         team_config,
-        LOCAL_BRONZE_ROOT=str(local_bronze_root),
-        LOCAL_SILVER_ROOT=str(local_silver_root),
+        LOCAL_RAW_ROOT=str(local_bronze_root),
+        LOCAL_CLEANED_ROOT=str(local_silver_root),
     )
     transformer = PlayerStatsTransformer(config=config)
     local_silver_path = transformer.transform_season(
@@ -87,8 +87,8 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     scrape_date = request.get("scrape_date")
 
     bucket = os.environ.get("S3_BUCKET", "sport-analysis")
-    bronze_prefix = os.environ.get("S3_BRONZE_PREFIX", "bronze")
-    silver_prefix = os.environ.get("S3_SILVER_PREFIX", "silver")
+    bronze_prefix = os.environ.get("S3_RAW_PREFIX", "raw")
+    silver_prefix = os.environ.get("S3_CLEANED_PREFIX", "cleaned")
 
     s3_client = boto3.client("s3")
 

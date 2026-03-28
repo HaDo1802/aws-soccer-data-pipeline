@@ -13,7 +13,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     scrape_date = request.get("scrape_date")
 
     bucket = os.environ["S3_BUCKET"]
-    bronze_prefix = os.environ.get("S3_BRONZE_PREFIX", "bronze")
+    bronze_prefix = os.environ.get("S3_RAW_PREFIX", "raw")
 
     config = Config().for_team(team)
     payloads = load_player_payloads_from_s3(

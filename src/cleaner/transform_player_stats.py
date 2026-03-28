@@ -207,7 +207,7 @@ class PlayerStatsTransformer:
 
     def _csv_output_path(self, season: str, team: str, scrape_date: str) -> Path:
         return (
-            Path(self.config.LOCAL_SILVER_ROOT)
+            Path(self.config.LOCAL_CLEANED_ROOT)
             / "transfermarkt"
             / team
             / "player_stats"
@@ -223,7 +223,7 @@ class PlayerStatsTransformer:
 
     def _combined_bronze_root(self, team: str) -> Path:
         return (
-            Path(self.config.LOCAL_BRONZE_ROOT)
+            Path(self.config.LOCAL_RAW_ROOT)
             / "transfermarkt"
             / team
             / "player_detailed_stats_combined"

@@ -36,11 +36,11 @@ class Config:
             },
         }
     )
-    LOCAL_BRONZE_ROOT: str = "data/bronze"
-    LOCAL_SILVER_ROOT: str = "data/silver"
+    LOCAL_RAW_ROOT: str = "data/bronze"
+    LOCAL_CLEANED_ROOT: str = "data/silver"
     S3_BUCKET: str = "sport-analysis"
-    S3_BRONZE_PREFIX: str = "bronze"
-    S3_SILVER_PREFIX: str = "silver"
+    S3_RAW_PREFIX: str = "raw"
+    S3_CLEANED_PREFIX: str = "cleaned"
     REQUEST_DELAY_SECONDS: int = 4
     MAX_RETRIES: int = 3
 

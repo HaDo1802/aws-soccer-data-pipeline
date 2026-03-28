@@ -27,6 +27,6 @@ def run_test() -> None:
 
 if __name__ == "__main__":
     os.environ.setdefault("S3_BUCKET", "sport-analysis")
-    os.environ.setdefault("S3_BRONZE_PREFIX", "bronze")
-    os.environ.setdefault("S3_SILVER_PREFIX", "silver")
+    os.environ.setdefault("S3_RAW_PREFIX", "raw")
+    os.environ.setdefault("S3_CLEANED_PREFIX", "cleaned")
     run_test()

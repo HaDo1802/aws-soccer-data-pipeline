@@ -21,7 +21,7 @@ def save_local_individual_json(
     config: Optional[Config] = None,
 ) -> Path:
     active_config = config or Config()
-    base_path = Path(active_config.LOCAL_BRONZE_ROOT) / source / team / artifact_name
+    base_path = Path(active_config.LOCAL_RAW_ROOT) / source / team / artifact_name
     if entity:
         base_path = base_path / entity
     base_path = base_path / season
@@ -48,7 +48,7 @@ def save_local_combined_csv(
 
     active_config = config or Config()
     base_path = (
-        Path(active_config.LOCAL_BRONZE_ROOT)
+        Path(active_config.LOCAL_RAW_ROOT)
         / source
         / team
         / artifact_name

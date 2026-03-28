@@ -15,7 +15,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     scrape_date = datetime.now(timezone.utc).date().isoformat()
 
     bucket = os.environ["S3_BUCKET"]
-    bronze_prefix = os.environ.get("S3_BRONZE_PREFIX", "bronze")
+    bronze_prefix = os.environ.get("S3_RAW_PREFIX", "raw")
 
     config = Config().for_team(team)
     scraper = TeamRosterScraper(config=config)

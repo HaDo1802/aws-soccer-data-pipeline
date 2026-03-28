@@ -29,7 +29,7 @@ def save_bronze_s3(
     artifact_name: str,
     season: str,
     bucket: str,
-    bronze_prefix: str = "bronze",
+    bronze_prefix: str = "raw",
     entity: Optional[str] = None,
     scrape_date: Optional[str] = None,
 ) -> str:
@@ -56,7 +56,7 @@ def save_bronze_s3_csv(
     artifact_name: str,
     season: str,
     bucket: str,
-    bronze_prefix: str = "bronze",
+    bronze_prefix: str = "raw",
     scrape_date: Optional[str] = None,
 ) -> Optional[str]:
     if not rows:
@@ -102,7 +102,7 @@ def load_player_payloads_from_s3(
     team: str,
     season: str,
     bucket: str,
-    bronze_prefix: str = "bronze",
+    bronze_prefix: str = "raw",
     scrape_date: Optional[str] = None,
     source: str = "transfermarkt",
 ) -> list[dict[str, Any]]:
@@ -128,7 +128,7 @@ def load_combined_bronze_csv_from_s3(
     team: str,
     season: str,
     bucket: str,
-    bronze_prefix: str = "bronze",
+    bronze_prefix: str = "raw",
     scrape_date: Optional[str] = None,
     source: str = "transfermarkt",
 ) -> tuple[list[dict[str, Any]], str, str]:
@@ -164,7 +164,7 @@ def save_silver_s3_csv(
     artifact_name: str,
     season: str,
     bucket: str,
-    silver_prefix: str = "silver",
+    silver_prefix: str = "cleaned",
     scrape_date: Optional[str] = None,
 ) -> Optional[str]:
     if not rows:
@@ -251,8 +251,8 @@ class S3Loader:
         return uploaded_keys
 
     def build_s3_key(self, file_path: Path) -> str:
-        bronze_root = Path(self.config.LOCAL_BRONZE_ROOT)
-        silver_root = Path(self.config.LOCAL_SILVER_ROOT)
+        bronze_root = Path(self.config.LOCAL_RAW_ROOT)
+        silver_root = Path(self.config.LOCAL_CLEANED_ROOT)
 
         if bronze_root in file_path.parents:
             relative_path = file_path.relative_to(bronze_root)
@@ -272,7 +272,7 @@ class S3Loader:
                 "player_detailed_stats_individual",
                 "player_detailed_stats_combined",
             }:
-                return str(Path(self.config.S3_BRONZE_PREFIX) / relative_path).replace("\\", "/")
+                return str(Path(self.config.S3_RAW_PREFIX) / relative_path).replace("\\", "/")
 
             raise ValueError(f"Unsupported local artifact type for S3 upload: {file_path}")
 
@@ -283,7 +283,7 @@ class S3Loader:
                 raise ValueError(f"Could not build S3 key for path: {file_path}")
             if relative_parts[0] != "transfermarkt":
                 raise ValueError(f"Unsupported local source root for S3 upload: {file_path}")
-            return str(Path(self.config.S3_SILVER_PREFIX) / relative_path).replace("\\", "/")
+            return str(Path(self.config.S3_CLEANED_PREFIX) / relative_path).replace("\\", "/")
 
         raise ValueError(f"Unsupported local base path for S3 upload: {file_path}")
 
@@ -293,7 +293,7 @@ class S3Loader:
         team: Optional[str] = None,
         include_cleaned: bool = True,
     ) -> list[Path]:
-        bronze_root = Path(self.config.LOCAL_BRONZE_ROOT) / "transfermarkt"
+        bronze_root = Path(self.config.LOCAL_RAW_ROOT) / "transfermarkt"
         patterns = [
             "*/team_roster/**/*.json",
             "*/player_detailed_stats_individual/**/*.json",
@@ -305,7 +305,7 @@ class S3Loader:
             files.extend(bronze_root.glob(pattern))
 
         if include_cleaned:
-            silver_root = Path(self.config.LOCAL_SILVER_ROOT)
+            silver_root = Path(self.config.LOCAL_CLEANED_ROOT)
             files.extend(silver_root.glob("transfermarkt/*/**/*.csv"))
 
         if season:

@@ -127,7 +127,7 @@ aws lambda create-function \
   --zip-file fileb://clean-player-stats.zip \
   --timeout 300 \
   --memory-size 256 \
-  --environment "Variables={S3_BUCKET=sport-analysis,S3_BRONZE_PREFIX=bronze,S3_SILVER_PREFIX=silver}"
+  --environment "Variables={S3_BUCKET=sport-analysis,S3_RAW_PREFIX=raw,S3_CLEANED_PREFIX=cleaned}"
 ```
 
 For the other functions, keep the same structure and change:
