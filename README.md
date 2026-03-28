@@ -16,30 +16,30 @@ Infrastructure-focused ETL pipeline for Transfermarkt squad and player season da
 ## Architecture
 
 ```text
-Transfermarkt.com → scrape_roster → scrape_players → combine_player_json_to_csv → S3 Bronze → Cleaner → S3 Silver
+Transfermarkt.com → scrape_roster → scrape_players → combine_player_json_to_csv → S3 Raw → Cleaner → S3 Cleaned
 ```
 
 ## AWS Services
 
 - **Compute**: AWS Lambda for scraping, aggregation, and light cleaning
-- **Storage**: S3 for bronze (raw) and silver (cleaned) data
+- **Storage**: S3 for raw and cleaned data
 - **Orchestration**: Step Functions for workflow sequencing
-- **Model**: Stateless Lambdas, append-only bronze, immutable silver outputs
+- **Model**: Stateless Lambdas, append-only raw snapshots, immutable cleaned outputs
 
 ## Execution Flow
 
 1. **Roster ingestion** (`scrape_roster_handler.handler`) - Scrapes squad roster
 2. **Player ingestion** (`scrape_players_handler.handler`) - Scrapes individual player'stats who exists in roster
 3. **Bronze aggregation** (`combine_player_json_to_csv_handler.handler`) - Combines player snapshots to CSV
-4. **Silver transformation** - Cleanses bronze data for warehouse loading
+4. **Cleaned transformation** - Cleanses raw data for warehouse loading
 
 ## Storage Layout
 
-Data is date-partitioned by **season + team + scrape_date**, organized into two folders, Broze and Silver:
+Data is date-partitioned by **season + team + scrape_date**, organized into two S3 prefixes, `raw/` and `cleaned/`:
 
 ```text
 s3://sport-analysis/
-  bronze/
+  raw/
     transfermarkt/
       manchester_united/
             player_detailed_stats_individual/
@@ -53,39 +53,33 @@ s3://sport-analysis/
               2025/ #season
                 scrape_date=2026-03-27.csv
       ...
-  silver/
+  cleaned/
     transfermarkt/
       manchester_united/
-        2025/
-          2026-03-26.csv
+        player_stats/
+          2025/
+            scrape_date=2026-03-26.csv
       ...
 ```
 
-S3 is split into `bronze/` and `silver/`: Bronze keeps raw, append-only snapshots for replay and debugging, while Silver keeps the cleaned output that is ready to load into a warehouse.
+S3 is split into  
+- `raw/`: keeps append-only snapshots for replay and debugging
+- `cleaned/`: keeps the output that is ready to load into a warehouse.
 
 ![S3 bucket root](image/s3/s3_1.png)
 
-Each time scraper run, it would directly write jsons file for each team -> each player -> each season for the date of scraping
+Each scrape run writes raw JSON files by team, player, season, and scrape date.
 
 ![Bronze individual player layout](image/s3/s3_3.png)
 
-The scraper also writes a combined raw CSV containing all player stats for this scraping date at team-season granularity.
-![Bronze combined layout](image/s3/s3_2.png)
+The scraper also writes a combined raw CSV containing all player stats for that scrape date at team-season granularity.
+![Raw combined layout](image/s3/s3_2.png)
 
-Silver is cleaned and ready for Datawarehouse ingestion
-![Silver combined layout](image/s3/s3_4_silver.png)
+The cleaned layer is ready for warehouse ingestion.
+![Cleaned combined layout](image/s3/s3_4.png)
 
-## Quick Start
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-make test
-python scripts/run_local_scrape_all.py --team manchester_united --season 2025
-python scripts/run_local_clean_player_stats.py --team manchester_united --season 2025
-```
-
-## Deployment
+## Lambda Deployment
 
 ### 1. Build Lambda artifacts
 
@@ -94,7 +88,7 @@ Use [`build_lambda.sh`](build_lambda.sh) from the project root to package each L
 ```bash
 ./build_lambda.sh scrape-roster scrape_roster_handler.py
 ./build_lambda.sh scrape-players scrape_players_handler.py
-./build_lambda.sh combine-player-json-to-csv combine_player_json_to_csv_handler.py
+./build_lambda.sh combine-player-json combine_player_json_to_csv_handler.py
 ./build_lambda.sh clean-player-stats clean_player_stats_handler.py
 ```
 
@@ -110,7 +104,7 @@ The output files are written to the repo root as:
 ```text
 scrape-roster.zip
 scrape-players.zip
-combine-player-json-to-csv.zip
+combine-player-json.zip
 clean-player-stats.zip
 ```
 
@@ -152,15 +146,17 @@ aws lambda update-function-code \
   --zip-file fileb://scrape-players.zip
 
 aws lambda update-function-code \
-  --function-name combine-player-json-to-csv \
-  --zip-file fileb://combine-player-json-to-csv.zip
+  --function-name combine-player-json \
+  --zip-file fileb://combine-player-json.zip
 
 aws lambda update-function-code \
   --function-name clean-player-stats \
   --zip-file fileb://clean-player-stats.zip
 ```
 
-> **Note:** `aws lambda update-function-code` only works for functions that already exist. Always run the build step before either `create-function` or `update-function-code`.
+> **Note:** 
+- `aws lambda update-function-code` only works for functions that already exist. Always run the build step before either `create-function` or `update-function-code`.
+-  For `clean-player-stats` lambda, I manually add Numpy package on the layer on the UI to avoid the mismatch between OS and Linux installation (and I dont want to use Docker for this yet)
 
 ### 4. Handler mapping reference
 
@@ -182,9 +178,9 @@ The project uses [`utils/config.py`](utils/config.py) as the central place to co
 
 This keeps the handlers and scripts generic and modular. The scraping code stays focused on execution logic.
 
-### Bronze layer design
+### Raw layer design
 
-- Bronze is the raw system of record.
+- Raw is the system of record for scrape outputs.
 - Every run writes a new object under a `scrape_date=...` path.
 - Existing snapshots are not overwritten.
 
@@ -194,7 +190,7 @@ This makes the pipeline idempotent in practice: rerunning a scrape does not corr
 
 - `team` separates club-level datasets.
 - `artifact` separates roster, individual player stats, and combined player stats.
-- `player_id` exists only for the individual bronze area because that is the natural unit of scrape and retry.
+- `player_id` exists only for the individual raw area because that is the natural unit of scrape and retry.
 - `season` keeps historical runs bounded to a specific season.
 - `scrape_date` identifies the exact extraction run.
 
@@ -216,7 +212,7 @@ Someone might wonder why the pipeline does not write one single raw file for eve
 
 ### Backfill strategy
 
-For the initial load, we treat the job as a bulk backfill. We define the historical seasons in `Config.SEASONS`, then run the local end-to-end scrape flow season by season so each run produces its own dated bronze snapshot and corresponding silver output.
+For the initial load, we treat the job as a bulk backfill. We define the historical seasons in `Config.SEASONS`, then run the local end-to-end scrape flow season by season so each run produces its own dated raw snapshot and corresponding cleaned output.
 
 ```bash
 python scripts/run_local_scrape_all.py --team manchester_united
