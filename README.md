@@ -64,7 +64,7 @@ These are the Lambda functions currently used in AWS for this project:
 Data is date-partitioned by **season + team + scrape_date**, organized into two S3 prefixes, `raw/` and `cleaned/`:
 
 ```text
-s3://sport-analysis/
+s3://<your-bucket-name>/
   raw/
     transfermarkt/
       manchester_united/
@@ -144,12 +144,12 @@ If the Lambda does not exist yet in AWS, create it first. Example for the cleane
 aws lambda create-function \
   --function-name clean-player-stats \
   --runtime python3.11 \
-  --role arn:aws:iam::317883707547:role/dev_lamda \
+  --role arn:aws:iam::<account-id>:role/<lambda-execution-role> \
   --handler clean_player_stats_handler.handler \
   --zip-file fileb://clean-player-stats.zip \
   --timeout 300 \
   --memory-size 256 \
-  --environment "Variables={S3_BUCKET=sport-analysis,S3_RAW_PREFIX=raw,S3_CLEANED_PREFIX=cleaned}"
+  --environment "Variables={S3_BUCKET=<your-bucket-name>,S3_RAW_PREFIX=raw,S3_CLEANED_PREFIX=cleaned}"
 ```
 
 For the other functions, keep the same structure and change:

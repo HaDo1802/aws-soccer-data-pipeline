@@ -4,7 +4,8 @@
 -- Dependencies: ACCOUNTADMIN or a role with privileges to create integrations, stages, and schemas.
 -- Params that require manual substitution: storage integration name or stage name if you prefer different names.
 -- Documentation note: This file is reference/setup SQL for humans and is NOT executed by Python code.
--- UPDATE THIS: Verify the STORAGE_AWS_ROLE_ARN value matches the IAM role you intend Snowflake to assume.
+-- UPDATE THIS: Replace the placeholder STORAGE_AWS_ROLE_ARN with the IAM role you intend Snowflake to assume.
+-- UPDATE THIS: Replace the placeholder S3 bucket path with your own cleaned-data bucket/prefix.
 -- UPDATE THIS: After running CREATE STORAGE INTEGRATION, run DESC INTEGRATION and copy the generated IAM user / external ID values into the AWS trust policy for the IAM role.
 
 CREATE DATABASE IF NOT EXISTS SOCCER_ANALYTICS;
@@ -18,15 +19,15 @@ CREATE OR REPLACE STORAGE INTEGRATION SPORT_ANALYSIS_S3_INT
   TYPE = EXTERNAL_STAGE
   STORAGE_PROVIDER = S3
   ENABLED = TRUE
-  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::317883707547:role/dev_lamda'
-  STORAGE_ALLOWED_LOCATIONS = ('s3://sport-analysis/cleaned/');
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::<account-id>:role/<snowflake-storage-role>'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://<your-bucket-name>/cleaned/');
 
 -- Run this after the integration is created.
 -- The output includes IAM values that must be copied into the AWS trust relationship.
 DESC INTEGRATION SPORT_ANALYSIS_S3_INT;
 
 CREATE OR REPLACE STAGE SOCCER_ANALYTICS.STAGING.cleaned_stage
-  URL = 's3://sport-analysis/cleaned/'
+  URL = 's3://<your-bucket-name>/cleaned/'
   STORAGE_INTEGRATION = SPORT_ANALYSIS_S3_INT
   FILE_FORMAT = (
     TYPE = CSV
