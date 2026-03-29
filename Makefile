@@ -1,6 +1,6 @@
 PYTHON := python3
 
-.PHONY: install format lint test run-roster run-scrape-league run-player-logs run-scrape-all run-clean run-load-s3 tree
+.PHONY: install format lint test run-roster run-scrape-league run-initial-backfill run-player-logs run-scrape-all run-clean run-load-s3 tree
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -19,6 +19,9 @@ run-roster:
 
 run-scrape-league:
 	$(PYTHON) scripts/run_local_scrape_teams_league.py
+
+run-initial-backfill:
+	$(PYTHON) scripts/run_local_initial_backfill.py
 
 run-player-logs:
 	$(PYTHON) scripts/run_local_player_logs.py

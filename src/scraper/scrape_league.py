@@ -37,9 +37,10 @@ class LeagueScraper:
         teams: list[dict[str, str]] = []
         seen_ids: set[str] = set()
 
-        for anchor in soup.select('a[href*="/verein/"]'):
+        href_pattern = re.compile(rf"/startseite/verein/\d+/saison_id/{re.escape(season)}$")
+        for anchor in soup.select('a[title][href*="/startseite/verein/"][href*="/saison_id/"]'):
             href = anchor.get("href")
-            if not href:
+            if not href or href_pattern.search(href) is None:
                 continue
 
             full_url = urljoin(self.config.TRANSFERMARKT_BASE_URL, href)
@@ -51,7 +52,9 @@ class LeagueScraper:
             if club_id in seen_ids:
                 continue
 
-            club_name = self.client.clean_player_anchor_text(anchor.get_text(" ", strip=True))
+            club_name = self.client.clean_value(anchor.get("title"))
+            if not club_name:
+                club_name = self.client.clean_player_anchor_text(anchor.get_text(" ", strip=True))
             if not club_name:
                 club_name = self.client.slug_to_name(club_slug)
 

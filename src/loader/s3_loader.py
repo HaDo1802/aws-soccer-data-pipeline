@@ -268,6 +268,7 @@ class S3Loader:
 
             artifact_name = relative_parts[2]
             if artifact_name in {
+                "league_teams",
                 "team_roster",
                 "player_detailed_stats_individual",
                 "player_detailed_stats_combined",

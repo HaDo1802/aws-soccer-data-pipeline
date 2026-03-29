@@ -36,12 +36,12 @@ class Config:
             },
         }
     )
-    LOCAL_RAW_ROOT: str = "data/bronze"
-    LOCAL_CLEANED_ROOT: str = "data/silver"
+    LOCAL_RAW_ROOT: str = "data/raw"
+    LOCAL_CLEANED_ROOT: str = "data/cleaned"
     S3_BUCKET: str = "sport-analysis"
     S3_RAW_PREFIX: str = "raw"
     S3_CLEANED_PREFIX: str = "cleaned"
-    REQUEST_DELAY_SECONDS: int = 4
+    REQUEST_DELAY_SECONDS: int = 1
     MAX_RETRIES: int = 3
 
     def for_team(self, team_key: str) -> "Config":

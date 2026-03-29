@@ -23,7 +23,11 @@ def ingest_season(
     if not scrape_date:
         raise ValueError("scrape_date is required")
 
-    active_config = (config or Config()).for_team(team)
+    base_config = config or Config()
+    if team == base_config.TEAM_KEY:
+        active_config = base_config
+    else:
+        active_config = base_config.for_team(team)
     connection = None
     try:
         connection = connect_snowflake(

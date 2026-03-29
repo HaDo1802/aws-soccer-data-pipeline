@@ -19,6 +19,7 @@ def save_local_individual_json(
     season: str,
     entity: Optional[str] = None,
     config: Optional[Config] = None,
+    scrape_date: Optional[str] = None,
 ) -> Path:
     active_config = config or Config()
     base_path = Path(active_config.LOCAL_RAW_ROOT) / source / team / artifact_name
@@ -27,8 +28,8 @@ def save_local_individual_json(
     base_path = base_path / season
     base_path.mkdir(parents=True, exist_ok=True)
 
-    scrape_date = datetime.now(timezone.utc).date().isoformat()
-    data_path = base_path / f"scrape_date={scrape_date}.json"
+    resolved_scrape_date = scrape_date or datetime.now(timezone.utc).date().isoformat()
+    data_path = base_path / f"scrape_date={resolved_scrape_date}.json"
     data_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     LOGGER.info("Wrote bronze data to %s", data_path)
@@ -42,6 +43,7 @@ def save_local_combined_csv(
     artifact_name: str,
     season: str,
     config: Optional[Config] = None,
+    scrape_date: Optional[str] = None,
 ) -> Optional[Path]:
     if not rows:
         return None
@@ -56,13 +58,13 @@ def save_local_combined_csv(
     )
     base_path.mkdir(parents=True, exist_ok=True)
 
-    scrape_date = datetime.now(timezone.utc).date().isoformat()
+    resolved_scrape_date = scrape_date or datetime.now(timezone.utc).date().isoformat()
     scraped_at = datetime.now(timezone.utc).isoformat()
-    data_path = base_path / f"scrape_date={scrape_date}.csv"
+    data_path = base_path / f"scrape_date={resolved_scrape_date}.csv"
     enriched_rows = [
         {
             **row,
-            "scrape_date": scrape_date,
+            "scrape_date": resolved_scrape_date,
             "scraped_at": scraped_at,
         }
         for row in rows

@@ -12,6 +12,11 @@ class StubClient:
     def fetch(self, url: str) -> str:
         return self.html_by_url[url]
 
+    def clean_value(self, value: object) -> str:
+        if value is None:
+            return ""
+        return str(value).strip()
+
     def clean_player_anchor_text(self, value: str) -> str:
         return " ".join(value.split())
 
@@ -24,10 +29,10 @@ class LeagueScraperTests(unittest.TestCase):
         html = """
         <html>
           <body>
-            <a href="/manchester-united/profil/verein/985">Manchester United</a>
-            <a href="/arsenal-fc/kader/verein/11/saison_id/2025">Arsenal FC</a>
-            <a href="/arsenal-fc/profil/verein/11">Arsenal FC</a>
-            <a href="/premier-league/startseite/wettbewerb/GB1">Premier League</a>
+            <a title="Manchester United" href="/manchester-united/startseite/verein/985/saison_id/2025">Manchester United</a>
+            <a title="Arsenal FC" href="/arsenal-fc/startseite/verein/11/saison_id/2025">Arsenal FC</a>
+            <a title="Arsenal FC" href="/arsenal-fc/startseite/verein/11/saison_id/2025">Arsenal FC</a>
+            <a title="Rasenballsport Leipzig" href="/rasenballsport-leipzig/startseite/verein/23826/saison_id/2024">Rasenballsport Leipzig</a>
           </body>
         </html>
         """
