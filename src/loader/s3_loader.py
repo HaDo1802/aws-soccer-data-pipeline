@@ -320,8 +320,7 @@ class S3Loader:
 
 def main() -> None:
     raise SystemExit(
-        "Run the S3 loader via 'python scripts/run_s3_load.py' "
-        "or 'python -m scripts.run_s3_load'. Direct execution of "
+        "Run the S3 loader via 'python scripts/run_local.py upload'. Direct execution of "
         "'src/loader/s3_loader.py' is unsupported."
     )
 

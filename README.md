@@ -1,6 +1,6 @@
 # Cloud-Native ETL Pipeline
 
-Infrastructure-focused ETL pipeline for Transfermarkt squad and player season data using AWS Lambda, S3, Step Functions, and Snowflake.
+Infrastructure-focused ETL pipeline for scraping and ingesting 1M+ records of Transfermarkt squad and player season data using AWS Lambda, S3, Step Functions, and Snowflake.
 
 <div align="center">
   <img src="image/background/image.png" alt="Background" width="1100">
@@ -8,10 +8,11 @@ Infrastructure-focused ETL pipeline for Transfermarkt squad and player season da
 
 ## Badges
 
-![Python](https://img.shields.io/badge/Python-3.x-blue)
-![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-orange)
-![Amazon S3](https://img.shields.io/badge/AWS-S3-green)
-![Step Functions Ready](https://img.shields.io/badge/AWS-Step%20Functions-lightgrey)
+![AWS Lambda](https://img.shields.io/badge/AWS%20Lambda-FF9900?logo=awslambda&logoColor=white)
+![Amazon S3](https://img.shields.io/badge/Amazon%20S3-569A31?logo=amazons3&logoColor=white)
+![Snowflake](https://img.shields.io/badge/Snowflake-29B5E8?logo=snowflake&logoColor=white)
+![Amazon EventBridge](https://img.shields.io/badge/Amazon%20EventBridge-FF4F8B?logo=amazoneventbridge&logoColor=white)
+![AWS Step Functions](https://img.shields.io/badge/AWS%20Step%20Functions-C925D1?logo=awsstepfunctions&logoColor=white)
 
 ## Architecture
 
@@ -24,7 +25,7 @@ Transfermarkt.com → scrape_roster → scrape_players → combine_player_json_t
 - **Compute**: AWS Lambda for scraping, aggregation, cleaning, and Snowflake ingesting
 - **Storage**: S3 for raw and cleaned data
 - **Orchestration**: Step Functions for workflow sequencing
-- **Model**: Stateless Lambdas, append-only raw snapshots, immutable cleaned outputs
+- **Scheduling**: Amazon EventBridge for triggering the Step Functions workflow on a schedule
 - **Data Warehouse**: Snowflake (my free credits on Redshift is running out)
 
 ## Step Functions Orchestration
@@ -49,16 +50,6 @@ The execution view makes it easier to observe which stage ran, which player-leve
 3. **Bronze aggregation** (`combine_player_json_to_csv_handler.handler`) - Combines player snapshots to CSV
 4. **Cleaned transformation** - Cleanses raw data for warehouse loading
 5. **Snowflake ingestion** (`snowflake_ingest_handler.handler`) - Loads cleaned S3 snapshots into Snowflake staging and bronze layers
-
-## Active Lambda Functions
-
-These are the Lambda functions currently used in AWS for this project:
-
-- `scrape-roster`
-- `scrape-players`
-- `combine-player-json`
-- `clean-player-stats`
-- `snowflake-ingest`
 
 ## Storage Layout
 
@@ -106,9 +97,63 @@ The cleaned layer is ready for warehouse ingestion.
 ![Cleaned combined layout](image/s3/s3_4.png)
 
 
+## Local Operations
+
+Whenever you want to discover, test run, debug for 1 specific event or functionality, use the single CLI entrypoint [`scripts/run_local.py`](scripts/run_local.py). It covers league discovery, one-team runs, full backfills, cleaning, S3 upload, and Snowflake ingest.
+
+Common local commands:
+
+```bash
+python3 scripts/run_local.py --help
+python3 scripts/run_local.py league --league-id GB1 --seasons 2025
+python3 scripts/run_local.py team --team manchester_united --season 2025
+python3 scripts/run_local.py clean --team manchester_united --season 2025 --scrape-date 2026-03-30
+python3 scripts/run_local.py upload --team manchester_united --season 2025 --bucket <your-bucket-name>
+python3 scripts/run_local.py ingest --team manchester_united --season 2025 --scrape-date 2026-03-30
+```
+
+### Backfill Strategy
+
+For the initial load, treat the job as a bulk backfill, the cli would be:
+
+```bash
+python3 scripts/run_local.py backfill \
+  --league-id GB1 \
+  --seasons 2021 2022 2023 2024 2025 \
+  --competition GB1 \
+  --bucket <your-bucket-name>
+```
+
+Local-only backfill without S3 upload or Snowflake ingest:
+
+```bash
+python3 scripts/run_local.py backfill \
+  --league-id GB1 \
+  --seasons 2021 2022 2023 2024 2025 \
+  --competition GB1 \
+  --skip-upload \
+  --skip-ingest
+```
+
+This keeps historical runs reproducible without forcing the main Step Functions path to handle the full one-time backfill workload.
+
 ## Lambda Deployment
 
+### Active Lambda Functions
+
+These are the Lambda functions currently used in AWS for this project, along with the handler each one maps to:
+
+| Lambda function | Handler |
+| --- | --- |
+| `scrape-roster` | `scrape_roster_handler.handler` |
+| `scrape-players` | `scrape_players_handler.handler` |
+| `combine-player-json` | `combine_player_json_to_csv_handler.handler` |
+| `clean-player-stats` | `clean_player_stats_handler.handler` |
+| `snowflake-ingest` | `snowflake_ingest_handler.handler` |
+
 ### 1. Build Lambda artifacts
+
+There are many ways to build a lambda function. What I am doing is trying to deploy local code into lambda functions accordingly, so we ensure the concistency between local dev and production code. 
 
 Use [`build_lambda.sh`](build_lambda.sh) from the project root to package each Lambda function:
 
@@ -159,8 +204,6 @@ For the other functions, keep the same structure and change:
 - `--handler`
 - `--zip-file`
 
-The handler values for this project are listed below in the handler mapping reference.
-
 ### 3. Update Lambda code after the function already exists
 
 Once a Lambda function has already been created, update only its code package with:
@@ -192,16 +235,6 @@ aws lambda update-function-code \
 -  For `clean-player-stats` lambda, I manually add Numpy package on the layer on the UI to avoid the mismatch between OS and Linux installation (and I dont want to use Docker for this yet)
 - For `snowflake-ingest`, I currently prefer running ingestion locally or from CloudShell unless the Snowflake dependency layer is fully set up in Lambda.
 
-### 4. Handler mapping reference
-
-```text
-scrape_roster_handler.handler
-scrape_players_handler.handler
-combine_player_json_to_csv_handler.handler
-clean_player_stats_handler.handler
-snowflake_ingest_handler.handler
-```
-
 ## Scraping and Storage Strategy
 
 ### Configuration-driven scrape control
@@ -210,7 +243,7 @@ The project uses [`utils/config.py`](utils/config.py) as the central place to co
 
 - To scrape a different team, we add or update an entry in `TEAM_CONFIGS`.
 - To extend historical coverage for backfills, we expand `SEASONS` and `SEASON_LABELS` 
-- For league-wide local backfills, [`scripts/run_local_initial_backfill.py`](scripts/run_local_initial_backfill.py) can discover teams dynamically, write local raw/cleaned outputs, upload them to S3, and then ingest them into Snowflake.
+- For local operation, use the single entrypoint [`scripts/run_local.py`](scripts/run_local.py). It exposes subcommands for league discovery, one-team runs, backfills, cleaning, uploading, and Snowflake ingest.
 
 This keeps the handlers and scripts generic and modular. The scraping code stays focused on execution logic.
 
@@ -246,34 +279,7 @@ Someone might wonder why the pipeline does not write one single raw file for eve
 - Backfills are cheaper and safer. You can rerun one team, one season, or one scrape date without touching the rest of the league. Therefore, debugging is easier and much faster to inspect one team or player prefix than to search inside one very large CSV.
 - Ingestion is more flexible. Downstream jobs can load only the partitions that changed instead of reloading an entire league-season every time.
 
-### Backfill strategy
-
-For the initial load, we treat the job as a bulk backfill. The recommended entry point is the local batch runner, which can scrape a league season by season, write dated local snapshots, upload those outputs to S3, and then ingest the cleaned snapshots into Snowflake.
-
-Full end-to-end backfill:
-
-```bash
-python3 scripts/run_local_initial_backfill.py \
-  --league-id GB1 \
-  --seasons 2021 2022 2023 2024 2025 \
-  --competition GB1 \
-  --bucket <your-bucket-name>
-```
-
-Local-only backfill without S3 upload or Snowflake ingest:
-
-```bash
-python3 scripts/run_local_initial_backfill.py \
-  --league-id GB1 \
-  --seasons 2021 2022 2023 2024 2025 \
-  --competition GB1 \
-  --skip-upload \
-  --skip-ingest
-```
-
-This keeps historical runs reproducible without forcing the main Step Functions path to handle the full one-time backfill workload.
-
-
 ## Whats coming next?
 - Expand scope to scrape all team within 5 most common league: expect 1 million+ row of data
 - Transform data and visualization
+- I might be a fan of Manchester United, but not really a fan of configuring the AWS Service manually. Would consider applying Terraform IoC. 

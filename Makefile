@@ -1,6 +1,6 @@
 PYTHON := python3
 
-.PHONY: install format lint test run-roster run-scrape-league run-initial-backfill run-player-logs run-scrape-all run-clean run-load-s3 tree
+.PHONY: install format lint test run-local run-backfill tree
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -14,26 +14,11 @@ lint:
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'
 
-run-roster:
-	$(PYTHON) scripts/run_local_team_roster.py
+run-local:
+	$(PYTHON) scripts/run_local.py $(ARGS)
 
-run-scrape-league:
-	$(PYTHON) scripts/run_local_scrape_teams_league.py
-
-run-initial-backfill:
-	$(PYTHON) scripts/run_local_initial_backfill.py
-
-run-player-logs:
-	$(PYTHON) scripts/run_local_player_logs.py
-
-run-scrape-all:
-	$(PYTHON) scripts/run_local_scrape_all.py
-
-run-clean:
-	$(PYTHON) scripts/run_local_clean_player_stats.py
-
-run-load-s3:
-	$(PYTHON) scripts/run_s3_load.py
+run-backfill:
+	$(PYTHON) scripts/run_local.py backfill $(ARGS)
 
 tree:
 	find . -maxdepth 3 | sort
