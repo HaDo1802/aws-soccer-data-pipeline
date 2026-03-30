@@ -58,3 +58,18 @@ class Config:
             TRANSFERMARKT_CLUB_SLUG=team_config["club_slug"],
             TRANSFERMARKT_CLUB_ID=team_config["club_id"],
         )
+
+    def for_runtime_team(
+        self,
+        team_key: str,
+        club_name: str,
+        club_slug: str,
+        club_id: str,
+    ) -> "Config":
+        return replace(
+            self,
+            TEAM_KEY=team_key,
+            CLUB_NAME=club_name,
+            TRANSFERMARKT_CLUB_SLUG=club_slug,
+            TRANSFERMARKT_CLUB_ID=club_id,
+        )

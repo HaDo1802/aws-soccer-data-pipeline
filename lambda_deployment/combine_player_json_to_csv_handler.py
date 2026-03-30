@@ -2,7 +2,7 @@ import os
 from typing import Any, Optional
 
 from src.loader.s3_loader import load_player_payloads_from_s3, resolve_scrape_date, save_bronze_s3_csv
-from utils.config import Config
+from utils.team_config import config_from_request
 
 
 def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
@@ -15,7 +15,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     bucket = os.environ["S3_BUCKET"]
     bronze_prefix = os.environ.get("S3_RAW_PREFIX", "raw")
 
-    config = Config().for_team(team)
+    config = config_from_request(request)
     payloads = load_player_payloads_from_s3(
         team=config.TEAM_KEY,
         season=season,
@@ -43,6 +43,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
         "statusCode": 200,
         "team": config.TEAM_KEY,
         "club": config.CLUB_NAME,
+        "club_name": config.CLUB_NAME,
         "season": season,
         "scrape_date": resolve_scrape_date(scrape_date),
         "player_payloads_found": len(payloads),

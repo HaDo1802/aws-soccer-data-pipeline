@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from src.loader.s3_loader import save_bronze_s3
 from src.scraper.scrape_roster import TeamRosterScraper
-from utils.config import Config
+from utils.team_config import config_from_request
 
 
 def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
@@ -17,7 +17,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     bucket = os.environ["S3_BUCKET"]
     bronze_prefix = os.environ.get("S3_RAW_PREFIX", "raw")
 
-    config = Config().for_team(team)
+    config = config_from_request(request, require_transfermarkt_identity=True)
     scraper = TeamRosterScraper(config=config)
     players = scraper.get_squad_players(season)
     payload = scraper.build_roster_payload(season, players)
@@ -36,6 +36,9 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
         "statusCode": 200,
         "team": config.TEAM_KEY,
         "club": config.CLUB_NAME,
+        "club_name": config.CLUB_NAME,
+        "club_slug": config.TRANSFERMARKT_CLUB_SLUG,
+        "club_id": config.TRANSFERMARKT_CLUB_ID,
         "season": season,
         "scrape_date": scrape_date,
         "players": players,

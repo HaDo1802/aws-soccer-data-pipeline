@@ -6,7 +6,7 @@ from typing import Any, Optional
 import boto3
 
 from src.cleaner.transform_player_stats import PlayerStatsTransformer
-from utils.config import Config
+from utils.team_config import config_from_request
 
 
 def _resolve_scrape_date(
@@ -33,6 +33,9 @@ def _clean_season(
     bucket: str,
     bronze_prefix: str,
     silver_prefix: str,
+    club_name: Optional[str],
+    club_slug: Optional[str],
+    club_id: Optional[str],
 ) -> dict[str, str]:
     bronze_key = "/".join(
         [bronze_prefix, "transfermarkt", team, "player_detailed_stats_combined", season, f"scrape_date={scrape_date}.csv"]
@@ -54,7 +57,14 @@ def _clean_season(
     local_bronze_path.parent.mkdir(parents=True, exist_ok=True)
     s3_client.download_file(bucket, bronze_key, str(local_bronze_path))
 
-    team_config = Config().for_team(team)
+    team_config = config_from_request(
+        {
+            "team": team,
+            "club_name": club_name,
+            "club_slug": club_slug,
+            "club_id": club_id,
+        }
+    )
     config = replace(
         team_config,
         LOCAL_RAW_ROOT=str(local_bronze_root),
@@ -97,7 +107,18 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     results = []
     for season in seasons:
         resolved_date = scrape_date or _resolve_scrape_date(s3_client, bucket, bronze_prefix, team, season)
-        result = _clean_season(s3_client, team, season, resolved_date, bucket, bronze_prefix, silver_prefix)
+        result = _clean_season(
+            s3_client,
+            team,
+            season,
+            resolved_date,
+            bucket,
+            bronze_prefix,
+            silver_prefix,
+            request.get("club_name"),
+            request.get("club_slug"),
+            request.get("club_id"),
+        )
         results.append(result)
 
     return {

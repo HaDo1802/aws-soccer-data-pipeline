@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from src.loader.s3_loader import save_bronze_s3
 from src.scraper.scrape_player import PlayerLogScraper
 from src.scraper.scrape_roster import TeamRosterScraper
-from utils.config import Config
+from utils.team_config import config_from_request
 
 
 def _normalize_player_selector(value: str) -> str:
@@ -41,7 +41,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     bucket = os.environ["S3_BUCKET"]
     bronze_prefix = os.environ.get("S3_RAW_PREFIX", "raw")
 
-    config = Config().for_team(team)
+    config = config_from_request(request, require_transfermarkt_identity=True)
     roster_scraper = TeamRosterScraper(config=config)
     player_scraper = PlayerLogScraper(config=config, roster_scraper=roster_scraper)
 

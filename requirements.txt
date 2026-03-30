@@ -1,7 +1,6 @@
 requests
 beautifulsoup4
 boto3
-lxml
 snowflake-connector-python
 python-dotenv
 # numpy

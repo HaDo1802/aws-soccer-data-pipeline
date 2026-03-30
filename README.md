@@ -1,6 +1,6 @@
 # Cloud-Native ETL Pipeline
 
-Infrastructure-focused ETL pipeline for Transfermarkt squad and player season data using AWS Lambda, S3, and Step Functions.
+Infrastructure-focused ETL pipeline for Transfermarkt squad and player season data using AWS Lambda, S3, Step Functions, and Snowflake.
 
 <div align="center">
   <img src="image/background/image.png" alt="Background" width="1100">
@@ -16,15 +16,16 @@ Infrastructure-focused ETL pipeline for Transfermarkt squad and player season da
 ## Architecture
 
 ```text
-Transfermarkt.com → scrape_roster → scrape_players → combine_player_json_to_csv → S3 Raw → Cleaner → S3 Cleaned
+Transfermarkt.com → scrape_roster → scrape_players → combine_player_json_to_csv → S3 Raw → clean-player-stats → S3 Cleaned → snowflake-ingest → Snowflake Bronze
 ```
 
 ## AWS Services
 
-- **Compute**: AWS Lambda for scraping, aggregation, and light cleaning
+- **Compute**: AWS Lambda for scraping, aggregation, cleaning, and Snowflake ingesting
 - **Storage**: S3 for raw and cleaned data
 - **Orchestration**: Step Functions for workflow sequencing
 - **Model**: Stateless Lambdas, append-only raw snapshots, immutable cleaned outputs
+- **Data Warehouse**: Snowflake (my free credits on Redshift is running out)
 
 ## Step Functions Orchestration
 
@@ -32,7 +33,7 @@ AWS Step Functions orchestrates the pipeline so each Lambda stays focused on one
 
 - The state machine starts with roster scraping.
 - A `Map` state fans out player scraping in parallel from the roster output.
-- Once player-level raw snapshots are complete, the workflow triggers the combine step and then the cleaner step.
+- Once player-level raw snapshots are complete, the workflow triggers the combine step, the cleaner step, and finally the Snowflake ingest step.
 - This keeps retry logic, execution history, and parallel control outside the Lambda code itself.
 
 ![Step Functions workflow](image/techstack/step_function_diagram.png)
@@ -209,6 +210,7 @@ The project uses [`utils/config.py`](utils/config.py) as the central place to co
 
 - To scrape a different team, we add or update an entry in `TEAM_CONFIGS`.
 - To extend historical coverage for backfills, we expand `SEASONS` and `SEASON_LABELS` 
+- For league-wide local backfills, [`scripts/run_local_initial_backfill.py`](scripts/run_local_initial_backfill.py) can discover teams dynamically, write local raw/cleaned outputs, upload them to S3, and then ingest them into Snowflake.
 
 This keeps the handlers and scripts generic and modular. The scraping code stays focused on execution logic.
 
@@ -246,16 +248,32 @@ Someone might wonder why the pipeline does not write one single raw file for eve
 
 ### Backfill strategy
 
-For the initial load, we treat the job as a bulk backfill. We define the historical seasons in `Config.SEASONS`, then run the local end-to-end scrape flow season by season so each run produces its own dated raw snapshot and corresponding cleaned output.
+For the initial load, we treat the job as a bulk backfill. The recommended entry point is the local batch runner, which can scrape a league season by season, write dated local snapshots, upload those outputs to S3, and then ingest the cleaned snapshots into Snowflake.
+
+Full end-to-end backfill:
 
 ```bash
-python scripts/run_local_scrape_all.py --team manchester_united
+python3 scripts/run_local_initial_backfill.py \
+  --league-id GB1 \
+  --seasons 2021 2022 2023 2024 2025 \
+  --competition GB1 \
+  --bucket <your-bucket-name>
 ```
 
-With `SEASONS` set to the last 5 years, that gives one controlled historical load without overwriting newer runs.
+Local-only backfill without S3 upload or Snowflake ingest:
+
+```bash
+python3 scripts/run_local_initial_backfill.py \
+  --league-id GB1 \
+  --seasons 2021 2022 2023 2024 2025 \
+  --competition GB1 \
+  --skip-upload \
+  --skip-ingest
+```
+
+This keeps historical runs reproducible without forcing the main Step Functions path to handle the full one-time backfill workload.
 
 
 ## Whats coming next?
 - Expand scope to scrape all team within 5 most common league: expect 1 million+ row of data
-- Finish the ingestion part to datawarehouse
 - Transform data and visualization

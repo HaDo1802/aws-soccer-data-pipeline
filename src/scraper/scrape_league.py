@@ -33,7 +33,7 @@ class LeagueScraper:
 
     def scrape_teams(self, league_id: str, season: str) -> list[dict[str, str]]:
         html = self.client.fetch(self.build_league_url(league_id, season))
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, "html.parser")
         teams: list[dict[str, str]] = []
         seen_ids: set[str] = set()
 

@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 from src.loader import snowflake_loader
 from utils.config import Config
+from utils.team_config import config_from_request
 
 
 def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
@@ -14,7 +15,7 @@ def handler(event: Optional[dict[str, Any]], context: Any) -> dict[str, Any]:
     if not scrape_date:
         raise ValueError("scrape_date is required")
 
-    config = base_config.for_team(team)
+    config = config_from_request(request, default_team=base_config.TEAM_KEY)
     result = snowflake_loader.ingest_season(
         team=config.TEAM_KEY,
         season=season,
