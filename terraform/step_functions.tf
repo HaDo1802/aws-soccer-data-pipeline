@@ -79,4 +79,6 @@ output "step_functions_pipeline_name" {
 }
 
 output "step_functions_pipeline_arn" {
-  description = "ARN of t
+  description = "ARN of the Transfermarkt Step Functions state machine."
+  value       = aws_sfn_state_machine.pipeline.arn
+}

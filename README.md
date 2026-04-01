@@ -186,7 +186,8 @@ snowflake-ingest.zip
 
 ## Terraform Infrastructure
 
-Setting up the whole AWS Infra manually is not an easy thing, but with Terraform, I found it very much relieving [`terraform/`](terraform/) folder for codifying the AWS control plane around the pipeline. It covers the shared Lambda IAM role and policies, the five Lambda functions, the Step Functions state machine, and the EventBridge Scheduler trigger.
+Terraform provisions all AWS resources for the pipeline: Lambda functions, IAM roles, Step Functions state machine, and EventBridge Scheduler. This keeps infrastructure as code, making deployments repeatable and changes/updates trackable for out AWS Infrastructure.
+
 
 Current Terraform scope:
 
@@ -306,5 +307,5 @@ Someone might wonder why the pipeline does not write one single raw file for eve
 - Ingestion is more flexible. Downstream jobs can load only the partitions that changed instead of reloading an entire league-season every time.
 
 ## Whats coming next?
-- Expand scope to scrape all team within 5 most common league: expect 1 million+ row of data
-- Transform data and visualization
+- Expand scope to scrape all team within 5 most common league: expect 5 million+ row of data.
+- Transform data and visualization with dbt, might be in another folder

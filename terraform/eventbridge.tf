@@ -73,4 +73,12 @@ resource "aws_scheduler_schedule" "weekly" {
   }
 }
 
-output "scheduler_weekly_nam
+output "scheduler_weekly_name" {
+  description = "Name of the weekly EventBridge Scheduler schedule."
+  value       = aws_scheduler_schedule.weekly.name
+}
+
+output "scheduler_weekly_arn" {
+  description = "ARN of the weekly EventBridge Scheduler schedule."
+  value       = aws_scheduler_schedule.weekly.arn
+}
